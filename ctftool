@@ -114,6 +114,12 @@ def upload_challenges(args):
 
 
 class Challenge:
+    '''
+    Interface to the challenge files and their contained data.
+    '''
+
+    FILE_NAME = 'challenge.json'
+
     def __init__(self, name, category, path, description='', points=0, scripts=None):
         self.name = name
         self.category = category
@@ -149,7 +155,7 @@ class Challenge:
         return ch
 
     def load_all():
-        paths = glob.glob('**/challenge.json', recursive=True)
+        paths = glob.glob('**/' + Challenge.FILE_NAME, recursive=True)
         for path in paths:
             with open(path) as f:
                 challenge = Challenge.load(f)
@@ -157,7 +163,7 @@ class Challenge:
 
     def save(self):
         os.makedirs(self.path, exist_ok=True)
-        challenge_file = os.path.join(self.path, 'challenge.json')
+        challenge_file = os.path.join(self.path, Challenge.FILE_NAME)
         with open(challenge_file, 'w') as f:
             data = self._save_json()
             json.dump(data, f, indent=4)
@@ -189,6 +195,16 @@ class Challenge:
 
 
 class CTFd:
+    """
+    Client for CTFd server.
+
+    This was originally tested with CTFd 2.1.1 on API v1 and should continue
+    to work in the future, as long as the API doesn't change too much.
+
+    Note that this is very hacky - it is near impossible to find any
+    documentation on the CTFd api.
+    """
+
     NONCE_EXPRESSION = re.compile('var csrf_nonce = *"([a-zA-Z0-9]*)"')
 
     def __init__(self, url, session_token):
