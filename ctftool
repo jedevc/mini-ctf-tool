@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import glob
+import json
+import subprocess
+import requests
+import re
+import colorama
+from colorama import Fore, Style
+import traceback
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    create_parser = subparsers.add_parser('create', help='create a new challenge')
+    create_parser.set_defaults(func=create_challenge)
+    create_parser.add_argument('name', help='name of the challenge')
+    create_parser.add_argument('category', help='category of the challenge')
+    create_parser.add_argument('--path', help='path to the challenge')
+
+    list_parser = subparsers.add_parser('list', help='list all challenges')
+    list_parser.add_argument('--verbose', '-v', action='store_true', help='increase verbosity')
+    list_parser.set_defaults(func=list_challenges)
+
+    refresh_parser = subparsers.add_parser('refresh', help='format all config files')
+    refresh_parser.set_defaults(func=refresh_challenges)
+
+    start_parser = subparsers.add_parser('start', help='execute all start scripts')
+    start_parser.set_defaults(func=start_challenges)
+
+    run_parser = subparsers.add_parser('run', help='execute all scripts')
+    run_parser.add_argument('script', help='script to run')
+    run_parser.set_defaults(func=run_challenges)
+
+    upload_parser = subparsers.add_parser('upload', help='upload all challenges')
+    upload_parser.add_argument('url', help='base url of the CTFd instance')
+    upload_parser.add_argument('session', help='session cookie value')
+    upload_parser.set_defaults(func=upload_challenges)
+
+    args = parser.parse_args()
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        parser.print_help()
+
+
+def create_challenge(args):
+    path = args.path
+    if path is None:
+        path = os.path.join(args.category, args.name)
+        path = path.lower().replace(' ', '')
+
+    challenge = Challenge(args.name, args.category, path)
+    challenge.save()
+
+
+def list_challenges(args):
+    cache = {}
+    for challenge in Challenge.load_all():
+        if challenge.category not in cache:
+            cache[challenge.category] = []
+
+        cache[challenge.category].append(challenge)
+
+    for category, challenges in cache.items():
+        for challenge in challenges:
+            print(f'[{challenge.category}] ', end='')
+            print(f'{Style.BRIGHT}{challenge.name}{Style.RESET_ALL} ', end='')
+            print(f'{Fore.LIGHTBLACK_EX}- {challenge.path}')
+            if args.verbose:
+                print(f'\tdescription: {challenge.description}')
+                print(f'\tpoints: {challenge.points}')
+                print(f'\tflags: {challenge.flags}')
+                print(f'\tfiles: {challenge.files}')
+
+
+def refresh_challenges(args):
+    for challenge in Challenge.load_all():
+        challenge.save()
+
+
+def start_challenges(args):
+    for challenge in Challenge.load_all():
+        challenge.run()
+
+
+def run_challenges(args):
+    for challenge in Challenge.load_all():
+        challenge.run(args.script)
+
+
+def upload_challenges(args):
+    ctfd = CTFd(args.url, args.session)
+
+    try:
+        online = ctfd.list()
+    except Exception:
+        online = []
+
+    for challenge in Challenge.load_all():
+        print(f'[{challenge.category}] {Style.BRIGHT}{challenge.name} ', end='')
+        if (challenge.name, challenge.category) in online:
+            print(Fore.YELLOW + '○')
+        else:
+            try:
+                ctfd.upload(challenge)
+                print(Fore.GREEN + '✓')
+            except Exception:
+                print(Fore.RED + '✗')
+
+
+class Challenge:
+    def __init__(self, name, category, path, description='', points=0, scripts=None):
+        self.name = name
+        self.category = category
+        self.description = description
+        self.points = points
+        self.flags = []
+        self.files = []
+        self.scripts = scripts or {'start': ''}
+
+        self.path = path
+
+    def add_flag(self, flag):
+        self.flags.append(flag)
+
+    def add_file(self, file):
+        self.files.append(file)
+
+    def run(self, script_name='start', cwd='.'):
+        script = self.scripts.get(script_name)
+        if script:
+            try:
+                # script is single command
+                subprocess.run(script, shell=True, cwd=self.path)
+            except AttributeError:
+                # script is list of commands
+                for part in script:
+                    subprocess.run(part, shell=True, cwd=self.path)
+
+    def load(file):
+        data = json.load(file)
+        ch = Challenge._load_json(data)
+        ch.path = os.path.dirname(file.name)
+        return ch
+
+    def load_all():
+        paths = glob.glob('**/challenge.json', recursive=True)
+        for path in paths:
+            with open(path) as f:
+                challenge = Challenge.load(f)
+                yield challenge
+
+    def save(self):
+        os.makedirs(self.path, exist_ok=True)
+        challenge_file = os.path.join(self.path, 'challenge.json')
+        with open(challenge_file, 'w') as f:
+            data = self._save_json()
+            json.dump(data, f, indent=4)
+
+    def _load_json(data):
+        ch = Challenge(name=data.get('name', ''),
+                       category=data.get('category', ''),
+                       path=None,
+                       points=data.get('points', 0),
+                       description=data.get('description', ''),
+                       scripts=data.get('scripts', ''))
+        ch.flags = data.get('flags', [])
+        ch.files = data.get('files', [])
+        return ch
+
+    def _save_json(self):
+        return {
+            'name': self.name,
+            'category': self.category,
+            'description': self.description,
+            'points': self.points,
+            'flags': self.flags,
+            'files': self.files,
+            'scripts': self.scripts
+        }
+
+    def __str__(self):
+        return self.name
+
+
+class CTFd:
+    NONCE_EXPRESSION = re.compile('var csrf_nonce = *"([a-zA-Z0-9]*)"')
+
+    def __init__(self, url, session_token):
+        self.base = url
+
+        self.session = requests.Session()
+        self.session.cookies['session'] = session_token
+
+        self.nonce = None
+        self._extract_nonce()
+
+    def list(self):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        resp = self.session.get(self.base + '/api/v1/challenges',
+                                headers=headers)
+        resp = resp.json()
+        if 'success' in resp and resp['success']:
+            return [(item['name'], item['category']) for item in resp['data']]
+
+    def upload(self, challenge):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        data = {
+            'name': challenge.name,
+            'category': challenge.category,
+            'state': 'visible',
+            'value': challenge.points,
+            'type': 'standard',
+            'description': challenge.description
+        }
+        resp = self.session.post(self.base + '/api/v1/challenges',
+                                 headers=headers, json=data)
+        resp = resp.json()
+        if 'success' in resp and resp['success']:
+            return
+
+        raise RuntimeError('could not add challenge')
+
+    def _extract_nonce(self):
+        resp = self.session.get(self.base)
+        matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
+        if matches:
+            self.nonce = matches.group(1)
+
+
+if __name__ == "__main__":
+    colorama.init(autoreset=True)
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+    finally:
+        colorama.deinit()
