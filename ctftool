@@ -109,8 +109,8 @@ def upload_challenges(args):
             try:
                 ctfd.upload(challenge)
                 print(Fore.GREEN + '✓')
-            except Exception:
-                print(Fore.RED + '✗')
+            except Exception as e:
+                print(Fore.RED + '✗ ' + repr(e))
 
 
 class Challenge:
@@ -227,10 +227,22 @@ class CTFd:
         resp = self.session.post(self.base + '/api/v1/challenges',
                                  headers=headers, json=data)
         resp = resp.json()
-        if 'success' in resp and resp['success']:
-            return
+        if 'success' not in resp or not resp['success']:
+            raise RuntimeError('could not add challenge')
 
-        raise RuntimeError('could not add challenge')
+        challenge_id = resp['data']['id']
+
+        for flag in challenge.flags:
+            data = {
+                'challenge': challenge_id,
+                'content': flag,
+                'type': 'static'
+            }
+            resp = self.session.post(self.base + '/api/v1/flags',
+                                     headers=headers, json=data)
+            resp = resp.json()
+            if 'success' not in resp or not resp['success']:
+                raise RuntimeError('could not add flag to challenge')
 
     def _extract_nonce(self):
         resp = self.session.get(self.base)
