@@ -244,6 +244,23 @@ class CTFd:
             if 'success' not in resp or not resp['success']:
                 raise RuntimeError('could not add flag to challenge')
 
+        for filename in challenge.files:
+            fullfilename = os.path.join(challenge.path, filename)
+            data = {
+                'nonce': self.nonce,
+                'challenge': challenge_id,
+                'type': 'challenge'
+            }
+            files = {
+                'file': (filename, open(fullfilename, 'rb'))
+            }
+
+            resp = self.session.post(self.base + '/api/v1/files',
+                                     data=data, files=files)
+            resp = resp.json()
+            if 'success' not in resp or not resp['success']:
+                raise RuntimeError('could not add file to challenge')
+
     def _extract_nonce(self):
         resp = self.session.get(self.base)
         matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
