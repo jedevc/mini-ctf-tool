@@ -30,15 +30,18 @@ def main():
     refresh_parser.set_defaults(func=refresh_challenges)
 
     start_parser = subparsers.add_parser('start', help='execute all start scripts')
+    start_parser.add_argument('--path', help='path of challenge to start')
     start_parser.set_defaults(func=start_challenges)
 
     run_parser = subparsers.add_parser('run', help='execute all scripts')
     run_parser.add_argument('script', help='script to run')
+    run_parser.add_argument('--path', help='path of challenge to run')
     run_parser.set_defaults(func=run_challenges)
 
     upload_parser = subparsers.add_parser('upload', help='upload all challenges')
     upload_parser.add_argument('url', help='base url of the CTFd instance')
     upload_parser.add_argument('session', help='session cookie value')
+    upload_parser.add_argument('--path', help='path of challenge to upload')
     upload_parser.set_defaults(func=upload_challenges)
 
     args = parser.parse_args()
@@ -84,12 +87,12 @@ def refresh_challenges(args):
 
 
 def start_challenges(args):
-    for challenge in Challenge.load_all():
+    for challenge in Challenge.load_all(args.path):
         challenge.run()
 
 
 def run_challenges(args):
-    for challenge in Challenge.load_all():
+    for challenge in Challenge.load_all(args.path):
         challenge.run(args.script)
 
 
@@ -101,7 +104,7 @@ def upload_challenges(args):
     except Exception:
         online = []
 
-    for challenge in Challenge.load_all():
+    for challenge in Challenge.load_all(args.path):
         print(f'[{challenge.category}] {Style.BRIGHT}{challenge.name} ', end='')
         if (challenge.name, challenge.category) in online:
             print(Fore.YELLOW + '○')
@@ -154,8 +157,13 @@ class Challenge:
         ch.path = os.path.dirname(file.name)
         return ch
 
-    def load_all():
-        paths = glob.glob('**/' + Challenge.FILE_NAME, recursive=True)
+    def load_all(directory=None):
+        if directory:
+            globpath = os.path.join(directory, '**', Challenge.FILE_NAME)
+        else:
+            globpath = os.path.join('**', Challenge.FILE_NAME)
+
+        paths = glob.glob(globpath, recursive=True)
         for path in paths:
             with open(path) as f:
                 challenge = Challenge.load(f)
