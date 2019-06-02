@@ -12,6 +12,10 @@ scoreboard.
 Simply copy the `ctftool` script into the root directory of your CTF
 challenge directory.
 
+To upgrade your existing installation (and overwrite the existing script):
+
+	$ ./ctftool upgrade
+
 ## Usage
 
 Create a challenge:
