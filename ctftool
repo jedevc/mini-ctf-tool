@@ -9,7 +9,10 @@ import re
 import requests
 import subprocess
 import traceback
+import urllib
 from colorama import Fore, Style
+
+UPSTREAM = 'https://raw.githubusercontent.com/jedevc/mini-ctf-tool/master/ctftool'
 
 
 def main():
@@ -44,6 +47,9 @@ def main():
     upload_parser.add_argument('session', help='session cookie value')
     upload_parser.add_argument('--path', help='path of challenge to upload')
     upload_parser.set_defaults(func=upload_challenges)
+
+    upgrade_parser = subparsers.add_parser('upgrade', help='upgrade ctftool')
+    upgrade_parser.set_defaults(func=upgrade)
 
     args = parser.parse_args()
     if hasattr(args, 'func'):
@@ -116,6 +122,17 @@ def upload_challenges(args):
                 print(Fore.GREEN + '✓')
             except Exception as e:
                 print(Fore.RED + '✗ ' + repr(e))
+
+
+def upgrade(args):
+    # download new code
+    response = urllib.request.urlopen(UPSTREAM)
+    source_code = response.read().decode()
+
+    # write code
+    path = os.path.realpath(__file__)
+    with open(path, 'w') as ctftool:
+        ctftool.write(source_code)
 
 
 PRESETS = {
