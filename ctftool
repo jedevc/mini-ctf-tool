@@ -21,6 +21,7 @@ def main():
     create_parser.add_argument('name', help='name of the challenge')
     create_parser.add_argument('category', help='category of the challenge')
     create_parser.add_argument('--path', help='path to the challenge')
+    create_parser.add_argument('--preset', help='challenge preset', choices=PRESETS.keys())
 
     list_parser = subparsers.add_parser('list', help='list all challenges')
     list_parser.add_argument('--verbose', '-v', action='store_true', help='increase verbosity')
@@ -57,7 +58,8 @@ def create_challenge(args):
         path = os.path.join(args.category, args.name)
         path = path.lower().replace(' ', '')
 
-    challenge = Challenge(args.name, args.category, path)
+    challenge = Challenge(args.name, args.category, path,
+                          preset=args.preset, extra=PRESET_EXTRA.get(args.preset, {}))
     challenge.save()
 
 
@@ -116,6 +118,22 @@ def upload_challenges(args):
                 print(Fore.RED + '✗ ' + repr(e))
 
 
+PRESETS = {
+    'docker': {
+        "start": "docker run -p {port}:4000 -d leet",
+        "kill": "docker kill `docker ps -f ancestor={image} -q`",
+        "build": "docker build . -t {image}"
+    }
+}
+
+PRESET_EXTRA = {
+    'docker': {
+        'port': 4000,
+        'image': ''
+    }
+}
+
+
 class Challenge:
     '''
     Interface to the challenge files and their contained data.
@@ -123,14 +141,16 @@ class Challenge:
 
     FILE_NAME = 'challenge.json'
 
-    def __init__(self, name, category, path, description='', points=0, scripts=None):
+    def __init__(self, name, category, path, description='', points=0, preset=None, scripts=None, extra=None):
         self.name = name
         self.category = category
         self.description = description
         self.points = points
         self.flags = []
         self.files = []
+        self.preset = preset
         self.scripts = scripts or {'start': ''}
+        self.extra = extra or {}
 
         self.path = path
 
@@ -141,15 +161,15 @@ class Challenge:
         self.files.append(file)
 
     def run(self, script_name='start', cwd='.'):
+        # run defined scripts
         script = self.scripts.get(script_name)
         if script:
-            try:
-                # script is single command
-                subprocess.run(script, shell=True, cwd=self.path)
-            except AttributeError:
-                # script is list of commands
-                for part in script:
-                    subprocess.run(part, shell=True, cwd=self.path)
+            self._run(script, shell=True, cwd=self.path)
+
+        # run preset scripts
+        if self.preset in PRESETS and script_name in PRESETS[self.preset]:
+            script = PRESETS[self.preset][script_name]
+            self._run(script, shell=True, cwd=self.path)
 
     def load(file):
         data = json.load(file)
@@ -176,13 +196,26 @@ class Challenge:
             data = self._save_json()
             json.dump(data, f, indent=4)
 
+    def _run(self, script, *args, **kwargs):
+        try:
+            # script is single command
+            part = script.format(**self.extra)
+            subprocess.run(part, *args, **kwargs)
+        except AttributeError:
+            # script is list of commands
+            for part in script:
+                part = part.format(**self.extra)
+                subprocess.run(part, *args, **kwargs)
+
     def _load_json(data):
         ch = Challenge(name=data.get('name', ''),
                        category=data.get('category', ''),
                        path=None,
                        points=data.get('points', 0),
                        description=data.get('description', ''),
-                       scripts=data.get('scripts', ''))
+                       preset=data.get('preset'),
+                       scripts=data.get('scripts', {}),
+                       extra=data.get('extra', {}))
         ch.flags = data.get('flags', [])
         ch.files = data.get('files', [])
         return ch
@@ -195,7 +228,9 @@ class Challenge:
             'points': self.points,
             'flags': self.flags,
             'files': self.files,
-            'scripts': self.scripts
+            'preset': self.preset,
+            'scripts': self.scripts,
+            'extra': self.extra
         }
 
     def __str__(self):
