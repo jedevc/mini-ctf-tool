@@ -166,7 +166,7 @@ class Challenge:
         self.flags = []
         self.files = []
         self.preset = preset
-        self.scripts = scripts or {'start': ''}
+        self.scripts = scripts or {}
         self.extra = extra or {}
 
         self.path = path
