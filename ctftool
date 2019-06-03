@@ -155,14 +155,14 @@ class Challenge:
 
     FILE_NAME = 'challenge.json'
 
-    def __init__(self, name, category, path, description='', points=0, preset=None, scripts=None, extra=None):
+    def __init__(self, name, category, path, description='', points=0, flags='', files=None, preset=None, scripts=None, extra=None):
         self.name = name
         self.category = category
         self.path = path
         self.description = '\n'.join(from_json_multipart(description))
         self.points = points
-        self.flags = []
-        self.files = []
+        self.flags = from_json_multipart(flags)
+        self.files = files or []
 
         self.preset = preset
         if scripts is None:
@@ -215,25 +215,24 @@ class Challenge:
         ch = Challenge(name=data.get('name', ''),
                        category=data.get('category', ''),
                        path=None,
-                       points=data.get('points', 0),
                        description=data.get('description', ''),
+                       points=data.get('points', 0),
+                       flags=data.get('flags', []),
+                       files=data.get('files', []),
                        preset=data.get('preset'),
                        scripts=data.get('scripts', {}),
                        extra=data.get('extra', {}))
-        ch.flags = data.get('flags', [])
-        ch.files = data.get('files', [])
         return ch
 
     def _save_json(self):
-        description = to_json_multipart(self.description.split('\n'))
         scripts = {k: to_json_multipart(v) for k, v in self.scripts.items()}
 
         return {
             'name': self.name,
             'category': self.category,
-            'description': description,
+            'description': to_json_multipart(self.description.split('\n')),
             'points': self.points,
-            'flags': self.flags,
+            'flags': to_json_multipart(self.flags),
             'files': self.files,
             'preset': self.preset,
             'scripts': scripts,
@@ -255,7 +254,7 @@ def from_json_multipart(obj):
 
 def to_json_multipart(li):
     if len(li) == 0:
-        return None
+        return ''
     elif len(li) == 1:
         return li[0]
     else:
