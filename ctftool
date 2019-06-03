@@ -155,7 +155,8 @@ class Challenge:
 
     FILE_NAME = 'challenge.json'
 
-    def __init__(self, name, category, path, description='', points=0, flags='', files=None, preset=None, scripts=None, extra=None):
+    def __init__(self, name, category, path, description='', points=0,
+                 flags='', files=None, preset=None, scripts=None, extra=None):
         self.name = name
         self.category = category
         self.path = path
