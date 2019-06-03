@@ -30,9 +30,9 @@ Refresh and reformat all challenge configs:
 
     $ ./ctftool refresh
 
-Deploy the challenges:
+Run a script:
 
-    $ ./ctftool start
+    $ ./ctftool run script
 
 Upload the challenges to CTFd with a session key:
 
