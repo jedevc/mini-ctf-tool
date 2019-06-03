@@ -33,10 +33,6 @@ def main():
     refresh_parser = subparsers.add_parser('refresh', help='format all config files')
     refresh_parser.set_defaults(func=refresh_challenges)
 
-    start_parser = subparsers.add_parser('start', help='execute all start scripts')
-    start_parser.add_argument('--path', help='path of challenge to start')
-    start_parser.set_defaults(func=start_challenges)
-
     run_parser = subparsers.add_parser('run', help='execute all scripts')
     run_parser.add_argument('script', help='script to run')
     run_parser.add_argument('--path', help='path of challenge to run')
@@ -98,11 +94,6 @@ def list_challenges(args):
 def refresh_challenges(args):
     for challenge in Challenge.load_all():
         challenge.save()
-
-
-def start_challenges(args):
-    for challenge in Challenge.load_all(args.path):
-        challenge.run()
 
 
 def run_challenges(args):
