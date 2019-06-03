@@ -171,12 +171,6 @@ class Challenge:
             self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
         self.extra = extra or {}
 
-    def add_flag(self, flag):
-        self.flags.append(flag)
-
-    def add_file(self, file):
-        self.files.append(file)
-
     def run(self, script_name='start', cwd='.'):
         # run defined scripts
         script = self.scripts.get(script_name)
