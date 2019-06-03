@@ -83,7 +83,13 @@ def list_challenges(args):
             print(f'{Style.BRIGHT}{challenge.name}{Style.RESET_ALL} ', end='')
             print(f'{Fore.LIGHTBLACK_EX}- {challenge.path}')
             if args.verbose:
-                print(f'\tdescription: {challenge.description}')
+                if '\n' in challenge.description:
+                    INDENT = '\n\t\t'
+                    description = INDENT + challenge.description.replace('\n', INDENT)
+                else:
+                    description = challenge.description
+
+                print(f'\tdescription: {description}')
                 print(f'\tpoints: {challenge.points}')
                 print(f'\tflags: {challenge.flags}')
                 print(f'\tfiles: {challenge.files}')
@@ -137,9 +143,9 @@ def upgrade(args):
 
 PRESETS = {
     'docker': {
-        "start": "docker run -p {port}:4000 -d {image}",
-        "kill": "docker kill `docker ps -f ancestor={image} -q`",
-        "build": "docker build . -t {image}"
+        'start': ['docker run -p {port}:4000 -d {image}'],
+        'kill': ['docker kill `docker ps -f ancestor={image} -q`'],
+        'build': ['docker build . -t {image}']
     }
 }
 
@@ -161,15 +167,18 @@ class Challenge:
     def __init__(self, name, category, path, description='', points=0, preset=None, scripts=None, extra=None):
         self.name = name
         self.category = category
-        self.description = description
+        self.path = path
+        self.description = '\n'.join(from_json_multipart(description))
         self.points = points
         self.flags = []
         self.files = []
-        self.preset = preset
-        self.scripts = scripts or {}
-        self.extra = extra or {}
 
-        self.path = path
+        self.preset = preset
+        if scripts is None:
+            self.scripts = {}
+        else:
+            self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
+        self.extra = extra or {}
 
     def add_flag(self, flag):
         self.flags.append(flag)
@@ -181,12 +190,16 @@ class Challenge:
         # run defined scripts
         script = self.scripts.get(script_name)
         if script:
-            self._run(script, shell=True, cwd=self.path)
+            for part in script:
+                part = part.format(**self.extra)
+                subprocess.run(part, shell=True, cwd=self.path)
 
         # run preset scripts
         if self.preset in PRESETS and script_name in PRESETS[self.preset]:
-            script = PRESETS[self.preset][script_name]
-            self._run(script, shell=True, cwd=self.path)
+            preset_script = PRESETS[self.preset][script_name]
+            for part in preset_script:
+                part = part.format(**self.extra)
+                subprocess.run(part, shell=True, cwd=self.path)
 
     def load(file):
         data = json.load(file)
@@ -213,17 +226,6 @@ class Challenge:
             data = self._save_json()
             json.dump(data, f, indent=4)
 
-    def _run(self, script, *args, **kwargs):
-        try:
-            # script is single command
-            part = script.format(**self.extra)
-            subprocess.run(part, *args, **kwargs)
-        except AttributeError:
-            # script is list of commands
-            for part in script:
-                part = part.format(**self.extra)
-                subprocess.run(part, *args, **kwargs)
-
     def _load_json(data):
         ch = Challenge(name=data.get('name', ''),
                        category=data.get('category', ''),
@@ -238,20 +240,41 @@ class Challenge:
         return ch
 
     def _save_json(self):
+        description = to_json_multipart(self.description.split('\n'))
+        scripts = {k: to_json_multipart(v) for k, v in self.scripts.items()}
+
         return {
             'name': self.name,
             'category': self.category,
-            'description': self.description,
+            'description': description,
             'points': self.points,
             'flags': self.flags,
             'files': self.files,
             'preset': self.preset,
-            'scripts': self.scripts,
+            'scripts': scripts,
             'extra': self.extra
         }
 
     def __str__(self):
         return self.name
+
+
+def from_json_multipart(obj):
+    if obj is None:
+        return []
+    elif hasattr(obj, 'append'):
+        return obj
+    else:
+        return [obj]
+
+
+def to_json_multipart(li):
+    if len(li) == 0:
+        return None
+    elif len(li) == 1:
+        return li[0]
+    else:
+        return li
 
 
 class CTFd:
