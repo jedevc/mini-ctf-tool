@@ -134,7 +134,7 @@ def upgrade(args):
 
 PRESETS = {
     'docker': {
-        'start': ['docker run -p {port}:4000 -d {image}'],
+        'start': ['docker run -p {port}:{internal} -d {image}'],
         'kill': ['docker kill `docker ps -f ancestor={image} -q`'],
         'build': ['docker build . -t {image}']
     }
@@ -142,8 +142,9 @@ PRESETS = {
 
 PRESET_EXTRA = {
     'docker': {
-        'port': 4000,
-        'image': ''
+        'port': 8000,
+        'internal': 80,
+        'image': '',
     }
 }
 
