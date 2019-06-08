@@ -27,6 +27,7 @@ def main():
     create_parser.add_argument('--preset', help='challenge preset', choices=PRESETS.keys())
 
     list_parser = subparsers.add_parser('list', help='list all challenges')
+    list_parser.add_argument('--path', help='path to the challenges')
     list_parser.add_argument('--verbose', '-v', action='store_true', help='increase verbosity')
     list_parser.set_defaults(func=list_challenges)
 
@@ -67,7 +68,7 @@ def create_challenge(args):
 
 def list_challenges(args):
     cache = {}
-    for challenge in Challenge.load_all():
+    for challenge in Challenge.load_all(args.path):
         if challenge.category not in cache:
             cache[challenge.category] = []
 
