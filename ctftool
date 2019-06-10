@@ -44,6 +44,7 @@ def main():
     upload_parser.add_argument('url', help='base url of the CTFd instance')
     upload_parser.add_argument('session', help='session cookie value')
     upload_parser.add_argument('--path', help='path of challenge to upload')
+    upload_parser.add_argument('--insecure', '-k', action='store_true', help='do not check ssl certificates')
     upload_parser.set_defaults(func=upload_challenges)
 
     upgrade_parser = subparsers.add_parser('upgrade', help='upgrade ctftool')
@@ -104,7 +105,7 @@ def run_challenges(args):
 
 
 def upload_challenges(args):
-    ctfd = CTFd(args.url, args.session)
+    ctfd = CTFd(args.url, args.session, verify=(not args.insecure))
 
     try:
         online = ctfd.list()
@@ -279,11 +280,12 @@ class CTFd:
 
     NONCE_EXPRESSION = re.compile('var csrf_nonce = *"([a-zA-Z0-9]*)"')
 
-    def __init__(self, url, session_token):
+    def __init__(self, url, session_token, verify=True):
         self.base = url
 
         self.session = requests.Session()
         self.session.cookies['session'] = session_token
+        self.verify = verify
 
         self.nonce = None
         self._extract_nonce()
@@ -294,7 +296,7 @@ class CTFd:
         }
 
         resp = self.session.get(self.base + '/api/v1/challenges',
-                                headers=headers)
+                                headers=headers, verify=self.verify)
         resp = resp.json()
         if 'success' in resp and resp['success']:
             return [(item['name'], item['category']) for item in resp['data']]
@@ -313,7 +315,8 @@ class CTFd:
             'description': challenge.description
         }
         resp = self.session.post(self.base + '/api/v1/challenges',
-                                 headers=headers, json=data)
+                                 headers=headers, json=data,
+                                 verify=self.verify)
         resp = resp.json()
         if 'success' not in resp or not resp['success']:
             raise RuntimeError('could not add challenge')
@@ -327,7 +330,8 @@ class CTFd:
                 'type': 'static'
             }
             resp = self.session.post(self.base + '/api/v1/flags',
-                                     headers=headers, json=data)
+                                     headers=headers, json=data,
+                                     verify=self.verify)
             resp = resp.json()
             if 'success' not in resp or not resp['success']:
                 raise RuntimeError('could not add flag to challenge')
@@ -344,13 +348,14 @@ class CTFd:
             }
 
             resp = self.session.post(self.base + '/api/v1/files',
-                                     data=data, files=files)
+                                     data=data, files=files,
+                                     verify=self.verify)
             resp = resp.json()
             if 'success' not in resp or not resp['success']:
                 raise RuntimeError('could not add file to challenge')
 
     def _extract_nonce(self):
-        resp = self.session.get(self.base)
+        resp = self.session.get(self.base, verify=self.verify)
         matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
         if matches:
             self.nonce = matches.group(1)
