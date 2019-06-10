@@ -37,6 +37,7 @@ def main():
     run_parser = subparsers.add_parser('run', help='execute all scripts')
     run_parser.add_argument('script', help='script to run')
     run_parser.add_argument('--path', help='path of challenge to run')
+    run_parser.add_argument('--ignore-presets', action='store_true', help='ignore the preset scripts and do not run them')
     run_parser.set_defaults(func=run_challenges)
 
     upload_parser = subparsers.add_parser('upload', help='upload all challenges')
@@ -99,7 +100,7 @@ def refresh_challenges(args):
 
 def run_challenges(args):
     for challenge in Challenge.load_all(args.path):
-        challenge.run(args.script)
+        challenge.run(args.script, ignore_presets=args.ignore_presets)
 
 
 def upload_challenges(args):
@@ -174,7 +175,7 @@ class Challenge:
             self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
         self.extra = extra or {}
 
-    def run(self, script_name='start', cwd='.'):
+    def run(self, script_name='start', cwd='.', ignore_presets=False):
         # run defined scripts
         script = self.scripts.get(script_name)
         if script:
@@ -183,11 +184,12 @@ class Challenge:
                 subprocess.run(part, shell=True, cwd=self.path)
 
         # run preset scripts
-        if self.preset in PRESETS and script_name in PRESETS[self.preset]:
-            preset_script = PRESETS[self.preset][script_name]
-            for part in preset_script:
-                part = part.format(**self.extra)
-                subprocess.run(part, shell=True, cwd=self.path)
+        if not ignore_presets:
+            if self.preset in PRESETS and script_name in PRESETS[self.preset]:
+                preset_script = PRESETS[self.preset][script_name]
+                for part in preset_script:
+                    part = part.format(**self.extra)
+                    subprocess.run(part, shell=True, cwd=self.path)
 
     def load(file):
         data = json.load(file)
