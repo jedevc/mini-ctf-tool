@@ -27,7 +27,7 @@ def main():
     create_parser.add_argument('--preset', help='challenge preset', choices=PRESETS.keys())
 
     list_parser = subparsers.add_parser('list', help='list all challenges')
-    list_parser.add_argument('--path', help='path to the challenges')
+    list_parser.add_argument('--path', action='append', help='path to the challenges')
     list_parser.add_argument('--verbose', '-v', action='store_true', help='increase verbosity')
     list_parser.set_defaults(func=list_challenges)
 
@@ -36,14 +36,14 @@ def main():
 
     run_parser = subparsers.add_parser('run', help='execute all scripts')
     run_parser.add_argument('script', help='script to run')
-    run_parser.add_argument('--path', help='path of challenge to run')
+    run_parser.add_argument('--path', action='append', help='path of challenge to run')
     run_parser.add_argument('--ignore-presets', action='store_true', help='ignore the preset scripts and do not run them')
     run_parser.set_defaults(func=run_challenges)
 
     upload_parser = subparsers.add_parser('upload', help='upload all challenges')
     upload_parser.add_argument('url', help='base url of the CTFd instance')
     upload_parser.add_argument('session', help='session cookie value')
-    upload_parser.add_argument('--path', help='path of challenge to upload')
+    upload_parser.add_argument('--path', action='append', help='path of challenge to upload')
     upload_parser.add_argument('--insecure', '-k', action='store_true', help='do not check ssl certificates')
     upload_parser.set_defaults(func=upload_challenges)
 
@@ -198,13 +198,16 @@ class Challenge:
         ch.path = os.path.dirname(file.name)
         return ch
 
-    def load_all(directory=None):
-        if directory:
-            globpath = os.path.join(directory, '**', Challenge.FILE_NAME)
-        else:
+    def load_all(directories=None):
+        if directories is None:
             globpath = os.path.join('**', Challenge.FILE_NAME)
+            paths = glob.glob(globpath, recursive=True)
+        else:
+            paths = []
+            for directory in directories:
+                globpath = os.path.join(directory, '**', Challenge.FILE_NAME)
+                paths.extend(glob.glob(globpath, recursive=True))
 
-        paths = glob.glob(globpath, recursive=True)
         for path in paths:
             with open(path) as f:
                 challenge = Challenge.load(f)
