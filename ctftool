@@ -8,6 +8,7 @@ import os
 import re
 import requests
 import subprocess
+import sys
 import traceback
 import urllib
 from colorama import Fore, Style
@@ -52,7 +53,9 @@ def main():
 
     args = parser.parse_args()
     if hasattr(args, 'func'):
-        args.func(args)
+        success = args.func(args)
+        if not success:
+            sys.exit(1)
     else:
         parser.print_help()
 
@@ -66,6 +69,8 @@ def create_challenge(args):
     challenge = Challenge(args.name, args.category, path,
                           preset=args.preset, extra=PRESET_EXTRA.get(args.preset, {}))
     challenge.save()
+
+    return True
 
 
 def list_challenges(args):
@@ -93,15 +98,21 @@ def list_challenges(args):
                 print(f'\tflags: {challenge.flags}')
                 print(f'\tfiles: {challenge.files}')
 
+    return True
+
 
 def refresh_challenges(args):
     for challenge in Challenge.load_all():
         challenge.save()
 
+    return True
+
 
 def run_challenges(args):
     for challenge in Challenge.load_all(args.path):
         challenge.run(args.script, ignore_presets=args.ignore_presets)
+
+    return True
 
 
 def upload_challenges(args):
@@ -112,6 +123,8 @@ def upload_challenges(args):
     except Exception:
         online = []
 
+    success = True
+
     for challenge in Challenge.load_all(args.path):
         print(f'[{challenge.category}] {Style.BRIGHT}{challenge.name} ', end='')
         if (challenge.name, challenge.category) in online:
@@ -121,7 +134,10 @@ def upload_challenges(args):
                 ctfd.upload(challenge)
                 print(Fore.GREEN + '✓')
             except Exception as e:
+                success = False
                 print(Fore.RED + '✗ ' + repr(e))
+
+    return success
 
 
 def upgrade(args):
@@ -365,6 +381,10 @@ class CTFd:
 
 
 if __name__ == "__main__":
+    # disable urllib warnings
+    requests.packages.urllib3.disable_warnings()
+
+    # run with colorama
     colorama.init(autoreset=True)
     try:
         main()
