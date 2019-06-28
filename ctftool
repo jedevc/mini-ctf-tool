@@ -86,11 +86,11 @@ def list_challenges(args):
             print(f'{Style.BRIGHT}{challenge.name}{Style.RESET_ALL} ', end='')
             print(f'{Fore.LIGHTBLACK_EX}- {challenge.path}')
             if args.verbose:
-                if '\n' in challenge.description:
+                if len(challenge.description) > 1:
                     INDENT = '\n\t\t'
-                    description = INDENT + challenge.description.replace('\n', INDENT)
+                    description = INDENT + INDENT.join(challenge.description)
                 else:
-                    description = challenge.description
+                    description = challenge.description[0]
 
                 print(f'\tdescription: {description}')
                 print(f'\tpoints: {challenge.points}')
@@ -178,7 +178,7 @@ class Challenge:
         self.name = name
         self.category = category
         self.path = path
-        self.description = '\n'.join(from_json_multipart(description))
+        self.description = from_json_multipart(description)
         self.points = points
         self.flags = from_json_multipart(flags)
         self.files = files or []
@@ -253,7 +253,7 @@ class Challenge:
         return {
             'name': self.name,
             'category': self.category,
-            'description': to_json_multipart(self.description.split('\n')),
+            'description': to_json_multipart(self.description),
             'points': self.points,
             'flags': to_json_multipart(self.flags),
             'files': self.files,
@@ -329,7 +329,7 @@ class CTFd:
             'state': 'visible',
             'value': challenge.points,
             'type': 'standard',
-            'description': challenge.description
+            'description': '<br>'.join(challenge.description)
         }
         resp = self.session.post(self.base + '/api/v1/challenges',
                                  headers=headers, json=data,
