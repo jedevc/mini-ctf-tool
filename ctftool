@@ -151,7 +151,7 @@ def upgrade(args):
 
 PRESETS = {
     'docker': {
-        'start': ['docker run -p {port}:{internal} -d {image}'],
+        'start': ['docker run -p {port}:{internal} --restart unless-stopped -d {image}'],
         'kill': ['docker kill `docker ps -f ancestor={image} -q`'],
         'build': ['docker build . -t {image}']
     }
