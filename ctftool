@@ -117,27 +117,35 @@ def run_challenges(args):
 def upload_challenges(args):
     ctfd = CTFd(args.url, args.session, verify=(not args.insecure))
 
-    try:
-        online = ctfd.list()
-    except Exception:
-        online = []
+    online = ctfd.list()
+    online_chals = [(chal["name"], chal["category"]) for chal in online]
 
     success = True
+    new_challenges = {}
 
-    for challenge in Challenge.load_all(args.path):
+    challenges = Challenge.load_all(args.path)
+    for challenge in challenges:
         print(f'[{challenge.category}] {Style.BRIGHT}{challenge.name} ', end='')
-        if (challenge.name, challenge.category) in online:
+
+        if (challenge.name, challenge.category) in online_chals:
             print(Fore.YELLOW + '○')
         else:
             try:
-                ctfd.upload(challenge)
+                cid = ctfd.upload(challenge)
+                new_challenges[cid] = challenge
                 print(Fore.GREEN + '✓')
             except Exception as e:
                 success = False
                 print(Fore.RED + '✗ ' + repr(e))
+                traceback.print_exc()
+
+    online = ctfd.list()
+    online_chals = [(chal["name"], chal["category"]) for chal in online]
+
+    for cid, challenge in new_challenges.items():
+        ctfd.requirements(cid, challenge, online)
 
     return success
-
 
 def upgrade(args):
     # download new code
@@ -174,7 +182,8 @@ class Challenge:
     FILE_NAME = 'challenge.json'
 
     def __init__(self, name, category, path, description='', points=0,
-                 flags='', files=None, preset=None, scripts=None, extra=None):
+                 flags='', files=None, requirements=None,
+                 preset=None, scripts=None, extra=None):
         self.name = name
         self.category = category
         self.path = path
@@ -182,6 +191,7 @@ class Challenge:
         self.points = points
         self.flags = from_json_multipart(flags)
         self.files = files or []
+        self.requirements = requirements or []
 
         self.preset = preset
         if scripts is None:
@@ -190,7 +200,7 @@ class Challenge:
             self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
         self.extra = extra or {}
 
-    def run(self, script_name='start', cwd='.', ignore_presets=False):
+    def run(self, script_name, cwd='.', ignore_presets=False):
         # run defined scripts
         script = self.scripts.get(script_name)
         if script:
@@ -242,6 +252,7 @@ class Challenge:
                        points=data.get('points', 0),
                        flags=data.get('flags', []),
                        files=data.get('files', []),
+                       requirements=data.get('requirements', []),
                        preset=data.get('preset'),
                        scripts=data.get('scripts', {}),
                        extra=data.get('extra', {}))
@@ -257,6 +268,7 @@ class Challenge:
             'points': self.points,
             'flags': to_json_multipart(self.flags),
             'files': self.files,
+            'requirements': self.requirements,
             'preset': self.preset,
             'scripts': scripts,
             'extra': self.extra
@@ -316,13 +328,16 @@ class CTFd:
                                 headers=headers, verify=self.verify)
         resp = resp.json()
         if 'success' in resp and resp['success']:
-            return [(item['name'], item['category']) for item in resp['data']]
+            return resp['data']
+        else:
+            return []
 
     def upload(self, challenge):
         headers = {
             'CSRF-Token': self.nonce
         }
 
+        # create challenge
         data = {
             'name': challenge.name,
             'category': challenge.category,
@@ -340,6 +355,7 @@ class CTFd:
 
         challenge_id = resp['data']['id']
 
+        # add challenge flags
         for flag in challenge.flags:
             data = {
                 'challenge': challenge_id,
@@ -353,6 +369,7 @@ class CTFd:
             if 'success' not in resp or not resp['success']:
                 raise RuntimeError('could not add flag to challenge')
 
+        # upload challenge files
         for filename in challenge.files:
             fullfilename = os.path.join(challenge.path, filename)
             data = {
@@ -368,8 +385,51 @@ class CTFd:
                                      data=data, files=files,
                                      verify=self.verify)
             resp = resp.json()
+
             if 'success' not in resp or not resp['success']:
                 raise RuntimeError('could not add file to challenge')
+
+        # solve the challenge
+        if challenge.flags:
+            data = {
+                'challenge_id': challenge_id,
+                'submission': challenge.flags[0]
+            }
+            self.session.post(self.base + '/api/v1/challenges/attempt',
+                            headers=headers, json=data,
+                            verify=self.verify)
+
+        return challenge_id
+
+
+    def requirements(self, challenge_id, challenge, online):
+        headers = {
+            'CSRF-Token': self.nonce
+        }
+
+        # determine the requirement ids
+        reqs = []
+        for req in challenge.requirements:
+            found = False
+            for chal in online:
+                specifier = chal['category'] + '/' + chal['name']
+                if specifier == req:
+                    reqs.append(chal['id'])
+                    found = True
+                    break
+            if not found:
+                raise RuntimeError("could not find challenge " + req)
+
+        # link the requirements
+        if reqs:
+            data = {
+                'requirements': {
+                    'prerequisites': reqs
+                }
+            }
+            resp = self.session.patch(self.base + '/api/v1/challenges/' + str(challenge_id),
+                                    headers=headers, json=data,
+                                    verify=self.verify)
 
     def _extract_nonce(self):
         resp = self.session.get(self.base, verify=self.verify)
