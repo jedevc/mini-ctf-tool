@@ -24,7 +24,6 @@ def main():
     create_parser.add_argument('name', help='name of the challenge')
     create_parser.add_argument('category', help='category of the challenge')
     create_parser.add_argument('--path', help='path to the challenge')
-    create_parser.add_argument('--preset', help='challenge preset', choices=PRESETS.keys())
 
     list_parser = subparsers.add_parser('list', help='list all challenges')
     list_parser.add_argument('--path', action='append', help='path to the challenges')
@@ -37,7 +36,6 @@ def main():
     run_parser = subparsers.add_parser('run', help='execute all scripts')
     run_parser.add_argument('script', help='script to run')
     run_parser.add_argument('--path', action='append', help='path of challenge to run')
-    run_parser.add_argument('--ignore-presets', action='store_true', help='ignore the preset scripts and do not run them')
     run_parser.set_defaults(func=run_challenges)
 
     upload_parser = subparsers.add_parser('upload', help='upload all challenges')
@@ -65,8 +63,7 @@ def create_challenge(args):
         path = os.path.join(args.category, args.name)
         path = path.lower().replace(' ', '')
 
-    challenge = Challenge(args.name, args.category, path,
-                          preset=args.preset, extra=PRESET_EXTRA.get(args.preset, {}))
+    challenge = Challenge(args.name, args.category, path)
     challenge.save()
 
     return True
@@ -109,7 +106,7 @@ def refresh_challenges(args):
 
 def run_challenges(args):
     for challenge in Challenge.load_all(args.path):
-        challenge.run(args.script, ignore_presets=args.ignore_presets)
+        challenge.run(args.script)
 
     return True
 
@@ -157,23 +154,6 @@ def upgrade(args):
         ctftool.write(source_code)
 
 
-PRESETS = {
-    'docker': {
-        'start': ['docker run -p {port}:{internal} --restart unless-stopped -d {image}'],
-        'kill': ['docker kill `docker ps -f ancestor={image} -q`'],
-        'build': ['docker build . -t {image}']
-    }
-}
-
-PRESET_EXTRA = {
-    'docker': {
-        'port': 8000,
-        'internal': 80,
-        'image': '',
-    }
-}
-
-
 class Challenge:
     '''
     Interface to the challenge files and their contained data.
@@ -182,8 +162,7 @@ class Challenge:
     FILE_NAME = 'challenge.json'
 
     def __init__(self, name, category, path, description='', points=0,
-                 flags='', files=None, requirements=None,
-                 preset=None, scripts=None, extra=None):
+                 flags='', files=None, requirements=None, scripts=None):
         self.name = name
         self.category = category
         self.path = path
@@ -193,28 +172,18 @@ class Challenge:
         self.files = files or []
         self.requirements = requirements or []
 
-        self.preset = preset
         if scripts is None:
             self.scripts = {}
         else:
             self.scripts = {k: from_json_multipart(v) for k, v in scripts.items()}
-        self.extra = extra or {}
 
-    def run(self, script_name, cwd='.', ignore_presets=False):
+    def run(self, script_name, cwd='.'):
         # run defined scripts
         script = self.scripts.get(script_name)
         if script:
             for part in script:
-                part = part.format(**self.extra)
+                part = part.format()
                 subprocess.run(part, shell=True, cwd=self.path)
-
-        # run preset scripts
-        if not ignore_presets:
-            if self.preset in PRESETS and script_name in PRESETS[self.preset]:
-                preset_script = PRESETS[self.preset][script_name]
-                for part in preset_script:
-                    part = part.format(**self.extra)
-                    subprocess.run(part, shell=True, cwd=self.path)
 
     def load(file):
         data = json.load(file)
@@ -253,9 +222,7 @@ class Challenge:
                        flags=data.get('flags', []),
                        files=data.get('files', []),
                        requirements=data.get('requirements', []),
-                       preset=data.get('preset'),
-                       scripts=data.get('scripts', {}),
-                       extra=data.get('extra', {}))
+                       scripts=data.get('scripts', {}))
         return ch
 
     def _save_json(self):
@@ -269,9 +236,7 @@ class Challenge:
             'flags': to_json_multipart(self.flags),
             'files': self.files,
             'requirements': self.requirements,
-            'preset': self.preset,
-            'scripts': scripts,
-            'extra': self.extra
+            'scripts': scripts
         }
 
     def __str__(self):
