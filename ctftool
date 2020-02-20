@@ -185,12 +185,18 @@ class Challenge:
                 part = part.format()
                 subprocess.run(part, shell=True, cwd=self.path)
 
+    @staticmethod
     def load(file):
-        data = json.load(file)
+        try:
+            data = json.load(file)
+        except json.JSONDecodeError:
+            raise ChallengeLoadError()
+
         ch = Challenge._load_json(data)
         ch.path = os.path.dirname(file.name)
         return ch
 
+    @staticmethod
     def load_all(directories=None):
         if directories is None:
             globpath = os.path.join('**', Challenge.FILE_NAME)
@@ -203,7 +209,10 @@ class Challenge:
 
         for path in paths:
             with open(path) as f:
-                challenge = Challenge.load(f)
+                try:
+                    challenge = Challenge.load(f)
+                except ChallengeLoadError:
+                    print("could not load challenge in {}".format(path), file=sys.stderr)
                 yield challenge
 
     def save(self):
@@ -213,6 +222,7 @@ class Challenge:
             data = self._save_json()
             json.dump(data, f, indent=4)
 
+    @staticmethod
     def _load_json(data):
         ch = Challenge(name=data.get('name', ''),
                        category=data.get('category', ''),
@@ -401,6 +411,10 @@ class CTFd:
         matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
         if matches:
             self.nonce = matches.group(1)
+
+
+class ChallengeLoadError(RuntimeError):
+    pass
 
 
 if __name__ == "__main__":
