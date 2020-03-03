@@ -282,7 +282,7 @@ class CTFd:
     documentation on the CTFd api.
     """
 
-    NONCE_EXPRESSION = re.compile('var csrf_nonce = *"([a-zA-Z0-9]*)"')
+    NONCE_EXPRESSION = re.compile('\'?csrf_?nonce\'?\s*[:=]\s*[\'"]([a-zA-Z0-9]*)[\'"]', re.IGNORECASE)
 
     def __init__(self, url, session_token, verify=True):
         self.base = url
