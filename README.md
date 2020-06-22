@@ -9,31 +9,77 @@ scoreboard.
 
 ## Installation
 
-Simply copy the `ctftool` script into the root directory of your CTF
+Simply copy the `ctftool.py` script into the root directory of your CTF
 challenge directory.
 
 To upgrade your existing installation (and overwrite the existing script):
 
-	$ ./ctftool upgrade
+    $ ./ctftool.py upgrade
 
 ## Usage
 
-Create a challenge:
+Ctftool automatically detects `challenge.json` and `challenge.yaml` files in
+the `challenges/` directory.
 
-    $ ./ctftool create SampleName SampleCategory
+    $ mkdir -p challenges/demo
+    $ cat << EOF > challenges/demo/challenge.yaml
+    name: demo
+    category: web
+    description: >
+        Just a demonstration challenge!
+    flags:
+    - "FLAG{demo}"
+    files:
+    - flag.txt
+    points: 50
+    EOF
 
 List all challenges:
 
-    $ ./ctftool list
+    $ ./ctftool.py list
+    [web] demo - challenges/demo/challenge.yaml
 
-Refresh and reformat all challenge configs:
+Validate all challenge configs:
 
-    $ ./ctftool refresh
+    $ ./ctftool.py validate
 
-Run a script:
+Upload the challenges to CTFd:
 
-    $ ./ctftool run script
+    $ ./ctftool upload https://demo.ctf.io -u USERNAME -p PASSWORD
 
-Upload the challenges to CTFd with a session key:
+## Documentation
 
-    $ ./ctftool upload https://demo.ctf.io deadbeef-1337-1337-1337-deadbeef1337
+Fields:
+
+- `name`
+
+  Name of the challenge. Must be unique.
+
+- `category`
+
+  The "type" of challenge. These correspond to CTFd categories, and
+  challenges will be shown grouped into these categories.
+
+- `description`
+
+  Plain text description of the challenge, may include some arbitrary HTML.
+
+- `points`
+  How many points the challenge is worth
+
+- `flags`
+  A list of strings that are valid flag submissions.
+
+  If the flag starts and ends with a `/`, e.g. `/FLAG{demo}/`, the internal
+  parts will be interpreted as a regex.
+
+- `files`
+
+  A list of files that should be uploaded to CTFd as part of the challenge.
+
+  The path to the file should be relative to the directory of the
+  corresponding challenge file.
+
+Note that while ctftool interprets all of the above fields, it will not give
+warnings/errors on unknown fields. This means that you can use any additional
+keys for your own purposes.
