@@ -14,7 +14,7 @@ import requests
 import yaml
 from colorama import Fore, Style
 
-UPSTREAM = "https://raw.githubusercontent.com/jedevc/mini-ctf-tool/master/ctftool"
+UPSTREAM = "https://raw.githubusercontent.com/jedevc/mini-ctf-tool/master/ctftool.py"
 
 
 def main():
