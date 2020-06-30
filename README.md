@@ -12,6 +12,18 @@ scoreboard.
 Simply copy the `ctftool.py` script into the root directory of your CTF
 challenge directory.
 
+The script depends on:
+
+- colorama
+- requests
+- pyyaml
+
+To install all of the dependencies:
+
+    $ pip3 install colorama requests pyyaml
+    
+### Upgrading
+
 To upgrade your existing installation (and overwrite the existing script):
 
     $ ./ctftool.py upgrade
