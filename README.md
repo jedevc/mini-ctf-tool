@@ -86,11 +86,16 @@ Fields:
   parts will be interpreted as a regex.
 
 - `files`
-
   A list of files that should be uploaded to CTFd as part of the challenge.
 
   The path to the file should be relative to the directory of the
   corresponding challenge file.
+
+- `deploy`
+  | field  | type                             | description                                        |
+  | :----- | :------------------------------- | :------------------------------------------------- |
+  | docker | bool                             | should deploy this challenge as a docker container |
+  | ports  | [{internal, external, protocol}] | list of port mappings into the container           |
 
 Note that while ctftool interprets all of the above fields, it will not give
 warnings/errors on unknown fields. This means that you can use any additional
