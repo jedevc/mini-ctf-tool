@@ -77,21 +77,25 @@ Fields:
   Plain text description of the challenge, may include some arbitrary HTML.
 
 - `points`
+
   How many points the challenge is worth
 
 - `flags`
+
   A list of strings that are valid flag submissions.
 
   If the flag starts and ends with a `/`, e.g. `/FLAG{demo}/`, the internal
   parts will be interpreted as a regex.
 
 - `files`
+
   A list of files that should be uploaded to CTFd as part of the challenge.
 
   The path to the file should be relative to the directory of the
   corresponding challenge file.
 
 - `deploy`
+
   | field  | type                             | description                                        |
   | :----- | :------------------------------- | :------------------------------------------------- |
   | docker | bool                             | should deploy this challenge as a docker container |
