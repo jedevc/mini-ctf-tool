@@ -93,7 +93,7 @@ def validate_challenges(args):
         failed = False
 
         def fail(message):
-            nonlocal failed
+            nonlocal failed, success
             failed = True
             success = False
             print(f"\n{Fore.RED}✗{Style.RESET_ALL} {message}", end="")
