@@ -49,7 +49,7 @@ def main():
     args = parser.parse_args()
     if hasattr(args, "func"):
         success = args.func(args)
-        if not success:
+        if success is not None and not success:
             sys.exit(1)
     else:
         parser.print_help()
