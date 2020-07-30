@@ -497,10 +497,17 @@ class CTFd:
 
 if __name__ == "__main__":
     # run with colorama
+    error = False
     colorama.init(autoreset=True)
     try:
         main()
     except Exception:
         traceback.print_exc()
+        error = True
     finally:
         colorama.deinit()
+
+    if error:
+        sys.exit(1)
+    else:
+        sys.exit(0)
