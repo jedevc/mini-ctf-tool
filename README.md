@@ -76,6 +76,18 @@ Fields:
 
   Plain text description of the challenge, may include some arbitrary HTML.
 
+- `generate`
+
+  Map containing filenames as keys and a string command to generate that file
+  as a value.
+
+  The command is executed with the current working directory as the directory
+  of the challenge file.
+
+- `clean`
+
+  Remove all generated files.
+
 - `points`
 
   How many points the challenge is worth
