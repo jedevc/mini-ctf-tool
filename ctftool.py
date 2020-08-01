@@ -28,13 +28,17 @@ def main():
     )
     list_parser.set_defaults(func=list_challenges)
 
-    validate_parser = subparsers.add_parser("validate", help="validate all config files")
+    validate_parser = subparsers.add_parser(
+        "validate", help="validate all config files"
+    )
     validate_parser.set_defaults(func=validate_challenges)
 
     generate_parser = subparsers.add_parser("generate", help="generate challenge files")
     generate_parser.set_defaults(func=generate_files)
 
-    clean_parser = subparsers.add_parser("clean", help="clean generated challenge files")
+    clean_parser = subparsers.add_parser(
+        "clean", help="clean generated challenge files"
+    )
     clean_parser.set_defaults(func=clean_files)
 
     upload_parser = subparsers.add_parser("upload", help="upload all challenges")
@@ -55,11 +59,11 @@ def main():
 
     args = parser.parse_args()
     if hasattr(args, "func"):
-        success = args.func(args)
-        if success is not None and not success:
-            sys.exit(1)
+        return args.func(args)
     else:
         parser.print_help()
+
+    return True
 
 
 def list_challenges(args):
@@ -113,7 +117,7 @@ def validate_challenges(args):
             if not challenge.name:
                 fail("challenge name must not be empty")
             elif not re.match(NAME_REGEX, challenge.name):
-                fail(f"challenge name does not match regex \"{NAME_REGEX}\"")
+                fail(f'challenge name does not match regex "{NAME_REGEX}"')
             elif challenge.name in existing_challenges:
                 fail("challenge name must not be a duplicate")
             else:
@@ -122,7 +126,7 @@ def validate_challenges(args):
             if not challenge.category:
                 fail("challenge category must not be empty")
             elif not re.match(NAME_REGEX, challenge.category):
-                fail(f"challenge category does not match regex \"{NAME_REGEX}\"")
+                fail(f'challenge category does not match regex "{NAME_REGEX}"')
 
             for filename in challenge.files:
                 if filename in challenge.generate:
@@ -144,6 +148,7 @@ def validate_challenges(args):
             print(f" {Fore.GREEN}✔{Style.RESET_ALL}")
 
     return success
+
 
 def generate_files(args):
     for challenge in Challenge.load_all(False):
@@ -497,17 +502,16 @@ class CTFd:
 
 if __name__ == "__main__":
     # run with colorama
-    error = False
     colorama.init(autoreset=True)
     try:
-        main()
+        success = main()
     except Exception:
         traceback.print_exc()
-        error = True
+        success = False
     finally:
         colorama.deinit()
 
-    if error:
-        sys.exit(1)
-    else:
+    if success is None or success:
         sys.exit(0)
+    else:
+        sys.exit(1)
