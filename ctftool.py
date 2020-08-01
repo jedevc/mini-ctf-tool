@@ -136,6 +136,14 @@ def validate_challenges(args):
                 if not os.path.exists(filename_relative):
                     fail(f'challenge file "{filename}" does not exist')
 
+            for hint in challenge.hints:
+                if not isinstance(hint, dict):
+                    fail("hint is not a map")
+                elif "text" not in hint:
+                    fail("hint does not have text")
+                elif "cost" not in hint:
+                    fail("hint does not have a cost")
+
             if len(challenge.flags) == 0:
                 fail("challenge must have at least 1 flag")
 
@@ -242,6 +250,7 @@ class Challenge:
         points: int = 0,
         flags: List[str] = None,
         files: List[str] = None,
+        hints: List[Dict[str, Any]] = None,
         generate: Dict[str, str] = None,
         requirements: List[str] = None,
         deploy: "Deploy" = None,
@@ -253,6 +262,7 @@ class Challenge:
         self.points = points
         self.flags = flags or []
         self.files = files or []
+        self.hints = hints or []
         self.generate = generate or {}
         self.requirements = requirements or []
         self.deploy = deploy
@@ -304,6 +314,7 @@ class Challenge:
             points=data.get("points", 0),
             flags=data.get("flags", []),
             files=data.get("files", []),
+            hints=data.get("hints", []),
             generate=data.get("generate", {}),
             requirements=data.get("requirements", []),
             deploy=Deploy._load_dict(data.get("deploy", {})),
@@ -414,6 +425,25 @@ class CTFd:
             resp_data = resp.json()
             if "success" not in resp_data or not resp_data["success"]:
                 raise RuntimeError("could not add flag to challenge")
+
+        # add challenge hints
+        for hint in challenge.hints:
+            if not isinstance(hint, dict):
+                continue
+            if "text" not in hint or "cost" not in hint:
+                continue
+
+            data = {
+                "content": hint["text"],
+                "cost": hint["cost"],
+                "challenge": challenge_id,
+            }
+            resp = self.session.post(
+                self.base + "/api/v1/hints", json=data, verify=self.verify,
+            )
+            resp_data = resp.json()
+            if "success" not in resp_data or not resp_data["success"]:
+                raise RuntimeError("could not add hint to challenge")
 
         # upload challenge files
         if challenge.path:
