@@ -44,10 +44,7 @@ def main():
     upload_parser = subparsers.add_parser("upload", help="upload all challenges")
     upload_parser.add_argument("url", help="base url of the CTFd instance")
     upload_parser.add_argument(
-        "--username", "-u", required=True, help="username for the admin user"
-    )
-    upload_parser.add_argument(
-        "--password", "-p", required=True, help="password for the admin user"
+        "--token", "-t", required=True, help="token for the admin user"
     )
     upload_parser.add_argument(
         "--insecure", "-k", action="store_true", help="do not check ssl certificates"
@@ -178,7 +175,7 @@ def clean_files(args):
 
 
 def upload_challenges(args):
-    ctfd = CTFd(args.url, args.username, args.password, verify=(not args.insecure))
+    ctfd = CTFd(args.url, args.token, verify=(not args.insecure))
     success = True
     skipped = False
 
@@ -355,37 +352,26 @@ class CTFd:
     """
     Client for CTFd server.
 
-    This was originally tested with CTFd 2.5.0 on API v1 and should continue
+    This has been tested with CTFd 3.0.0 on API v1 and should continue
     to work in the future, as long as the API doesn't change too much.
-
-    Note that this is quite hacky - it is near impossible to find any
-    documentation on the CTFd api.
     """
 
     NONCE_EXPRESSION = re.compile(
         "'?csrf_?nonce'?\s*[:=]\s*['\"]([a-zA-Z0-9]*)['\"]", re.IGNORECASE
     )
 
-    def __init__(self, url: str, username: str, password: str, verify: bool = True):
+    def __init__(self, url: str, token: str, verify: bool = True):
         self.base = url
         self.verify = verify
         self.session = requests.Session()
 
-        self._extract_nonce()
-
-        self.username = username
-        self.password = password
-        self._login()
-
-        self._extract_nonce()
+        self.session.headers.update(
+            {"Authorization": f"Token {token}",}
+        )
 
     def list(self) -> List[Challenge]:
-        headers = {"CSRF-Token": self.nonce}
-
         resp = self.session.get(
-            self.base + "/api/v1/challenges?view=admin",
-            headers=headers,
-            verify=self.verify,
+            self.base + "/api/v1/challenges?view=admin", verify=self.verify, json={},
         )
         resp_data = resp.json()
         if "success" in resp_data and resp_data["success"]:
@@ -394,8 +380,6 @@ class CTFd:
             return []
 
     def upload(self, challenge: Challenge) -> int:
-        headers = {"CSRF-Token": self.nonce}
-
         # create challenge
         data = {
             "name": challenge.name,
@@ -406,10 +390,7 @@ class CTFd:
             "description": challenge.description,
         }
         resp = self.session.post(
-            self.base + "/api/v1/challenges",
-            headers=headers,
-            json=data,
-            verify=self.verify,
+            self.base + "/api/v1/challenges", json=data, verify=self.verify,
         )
         resp_data = resp.json()
         if "success" not in resp_data or not resp_data["success"]:
@@ -428,10 +409,7 @@ class CTFd:
                 data = {"challenge": challenge_id, "content": flag, "type": "static"}
 
             resp = self.session.post(
-                self.base + "/api/v1/flags",
-                headers=headers,
-                json=data,
-                verify=self.verify,
+                self.base + "/api/v1/flags", json=data, verify=self.verify,
             )
             resp_data = resp.json()
             if "success" not in resp_data or not resp_data["success"]:
@@ -442,7 +420,6 @@ class CTFd:
             for filename in challenge.files:
                 fullfilename = os.path.join(os.path.dirname(challenge.path), filename)
                 data = {
-                    "nonce": self.nonce,
                     "challenge": challenge_id,
                     "type": "challenge",
                 }
@@ -463,8 +440,6 @@ class CTFd:
     def requirements(
         self, challenge_id: int, challenge: Challenge, online: List[Dict[str, Any]]
     ):
-        headers = {"CSRF-Token": self.nonce}
-
         # determine the requirement ids
         requirement_ids = []
         for req in challenge.requirements:
@@ -480,24 +455,9 @@ class CTFd:
             data = {"requirements": {"prerequisites": requirement_ids}}
             resp = self.session.patch(
                 self.base + f"/api/v1/challenges/{challenge_id}",
-                headers=headers,
                 json=data,
                 verify=self.verify,
             )
-
-    def _extract_nonce(self):
-        resp = self.session.get(self.base, verify=self.verify)
-        matches = CTFd.NONCE_EXPRESSION.search(resp.content.decode())
-        if matches:
-            self.nonce = matches.group(1)
-        else:
-            raise RuntimeError("could not extract nonce")
-
-    def _login(self):
-        data = {"name": self.username, "password": self.password, "nonce": self.nonce}
-        resp = self.session.post(self.base + "/login", verify=self.verify, data=data)
-        if "username or password is incorrect" in resp.text:
-            raise RuntimeError("could not login, invalid credentials")
 
 
 if __name__ == "__main__":
