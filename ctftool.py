@@ -367,11 +367,8 @@ class CTFd:
 
     def list(self) -> List[Any]:
         resp = self.session.get(f"{self.base}/api/v1/challenges?view=admin", json={})
-        resp_data = resp.json()
-        if "success" in resp_data and resp_data["success"]:
-            return resp_data["data"]
-        else:
-            return []
+        resp.raise_for_status()
+        return resp.json()["data"]
 
     def upload(self, challenge: Challenge) -> int:
         # create challenge
@@ -384,9 +381,8 @@ class CTFd:
             "description": challenge.description,
         }
         resp = self.session.post(f"{self.base}/api/v1/challenges", json=data)
+        resp.raise_for_status()
         resp_data = resp.json()
-        if "success" not in resp_data or not resp_data["success"]:
-            raise RuntimeError("could not add challenge")
         challenge_id = int(resp_data["data"]["id"])
 
         # add challenge flags
@@ -401,9 +397,7 @@ class CTFd:
                 data = {"challenge": challenge_id, "content": flag, "type": "static"}
 
             resp = self.session.post(f"{self.base}/api/v1/flags", json=data)
-            resp_data = resp.json()
-            if "success" not in resp_data or not resp_data["success"]:
-                raise RuntimeError("could not add flag to challenge")
+            resp.raise_for_status()
 
         # add challenge hints
         for hint in challenge.hints:
@@ -418,9 +412,7 @@ class CTFd:
                 "challenge": challenge_id,
             }
             resp = self.session.post(f"{self.base}/api/v1/hints", json=data)
-            resp_data = resp.json()
-            if "success" not in resp_data or not resp_data["success"]:
-                raise RuntimeError("could not add hint to challenge")
+            resp.raise_for_status()
 
         # upload challenge files
         if challenge.path:
@@ -435,9 +427,7 @@ class CTFd:
                 resp = self.session.post(
                     f"{self.base}/api/v1/files", data=data, files=files,
                 )
-                resp_data = resp.json()
-                if "success" not in resp_data or not resp_data["success"]:
-                    raise RuntimeError("could not add file to challenge")
+                resp.raise_for_status()
 
         return challenge_id
 
@@ -479,7 +469,6 @@ class CTFd:
 
             resp = self.session.post(f"{self.base}/api/v1/flags", json=data)
             resp.raise_for_status()
-            resp_data = resp.json()
 
         # remove challenge hints
         resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/hints")
@@ -503,9 +492,7 @@ class CTFd:
                 "challenge": challenge_id,
             }
             resp = self.session.post(f"{self.base}/api/v1/hints", json=data)
-            resp_data = resp.json()
-            if "success" not in resp_data or not resp_data["success"]:
-                raise RuntimeError("could not add hint to challenge")
+            resp.raise_for_status()
 
         # remove challenge files
         resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/files")
@@ -529,9 +516,7 @@ class CTFd:
                 resp = self.session.post(
                     f"{self.base}/api/v1/files", data=data, files=files,
                 )
-                resp_data = resp.json()
-                if "success" not in resp_data or not resp_data["success"]:
-                    raise RuntimeError("could not add file to challenge")
+                resp.raise_for_status()
 
         return challenge_id
 
@@ -549,6 +534,7 @@ class CTFd:
             resp = self.session.patch(
                 f"{self.base}/api/v1/challenges/{challenge_id}", json=data,
             )
+            resp.raise_for_status()
 
 
 if __name__ == "__main__":
