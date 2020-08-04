@@ -353,10 +353,6 @@ class CTFd:
     to work in the future, as long as the API doesn't change too much.
     """
 
-    NONCE_EXPRESSION = re.compile(
-        "'?csrf_?nonce'?\s*[:=]\s*['\"]([a-zA-Z0-9]*)['\"]", re.IGNORECASE
-    )
-
     def __init__(self, url: str, token: str):
         self.base = url
         self.session = requests.Session()
