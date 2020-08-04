@@ -381,49 +381,7 @@ class CTFd:
         resp_data = resp.json()
         challenge_id = int(resp_data["data"]["id"])
 
-        # add challenge flags
-        for flag in challenge.flags:
-            if flag.startswith("/") and flag.endswith("/"):
-                data = {
-                    "challenge": challenge_id,
-                    "content": flag[1:-1],
-                    "type": "regex",
-                }
-            else:
-                data = {"challenge": challenge_id, "content": flag, "type": "static"}
-
-            resp = self.session.post(f"{self.base}/api/v1/flags", json=data)
-            resp.raise_for_status()
-
-        # add challenge hints
-        for hint in challenge.hints:
-            if not isinstance(hint, dict):
-                continue
-            if "text" not in hint or "cost" not in hint:
-                continue
-
-            data = {
-                "content": hint["text"],
-                "cost": hint["cost"],
-                "challenge": challenge_id,
-            }
-            resp = self.session.post(f"{self.base}/api/v1/hints", json=data)
-            resp.raise_for_status()
-
-        # upload challenge files
-        if challenge.path:
-            for filename in challenge.files:
-                fullfilename = os.path.join(os.path.dirname(challenge.path), filename)
-                data = {
-                    "challenge": challenge_id,
-                    "type": "challenge",
-                }
-                files = {"file": (filename, open(fullfilename, "rb"))}
-
-                resp = self.session.post(
-                    f"{self.base}/api/v1/files", data=data, files=files,
-                )
-                resp.raise_for_status()
+        self._upload_parts(challenge_id, challenge)
 
         return challenge_id
 
@@ -452,6 +410,29 @@ class CTFd:
                 f"{self.base}/api/v1/flags/{flag['id']}"
             ).raise_for_status()
 
+        # remove challenge hints
+        resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/hints")
+        resp.raise_for_status()
+        online_hints = resp.json()["data"]
+        for hint in online_hints:
+            self.session.delete(
+                f"{self.base}/api/v1/hints/{hint['id']}"
+            ).raise_for_status()
+
+        # remove challenge files
+        resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/files")
+        resp.raise_for_status()
+        online_files = resp.json()["data"]
+        for file in online_files:
+            self.session.delete(
+                f"{self.base}/api/v1/files/{file['id']}"
+            ).raise_for_status()
+
+        self._upload_parts(challenge_id, challenge)
+
+        return challenge_id
+
+    def _upload_parts(self, challenge_id: int, challenge: Challenge):
         # add challenge flags
         for flag in challenge.flags:
             if flag.startswith("/") and flag.endswith("/"):
@@ -465,15 +446,6 @@ class CTFd:
 
             resp = self.session.post(f"{self.base}/api/v1/flags", json=data)
             resp.raise_for_status()
-
-        # remove challenge hints
-        resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/hints")
-        resp.raise_for_status()
-        online_hints = resp.json()["data"]
-        for hint in online_hints:
-            self.session.delete(
-                f"{self.base}/api/v1/hints/{hint['id']}"
-            ).raise_for_status()
 
         # add challenge hints
         for hint in challenge.hints:
@@ -490,15 +462,6 @@ class CTFd:
             resp = self.session.post(f"{self.base}/api/v1/hints", json=data)
             resp.raise_for_status()
 
-        # remove challenge files
-        resp = self.session.get(f"{self.base}/api/v1/challenges/{challenge_id}/files")
-        resp.raise_for_status()
-        online_files = resp.json()["data"]
-        for file in online_files:
-            self.session.delete(
-                f"{self.base}/api/v1/files/{file['id']}"
-            ).raise_for_status()
-
         # upload challenge files
         if challenge.path:
             for filename in challenge.files:
@@ -513,8 +476,6 @@ class CTFd:
                     f"{self.base}/api/v1/files", data=data, files=files,
                 )
                 resp.raise_for_status()
-
-        return challenge_id
 
     def requirements(
         self, challenge_id: int, challenge: Challenge, online: Dict[str, Any],
