@@ -65,11 +65,16 @@ Fields:
 
 - `name`
 
-  Name of the challenge. Must be unique.
+  Name of the challenge. Must be unique and stable over time.
+
+- `display`
+
+  Display name of the challenge. This corresponds to the CTFd challenge name.
+  Must be stable over time (otherwise you'll get challenge duplication).
 
 - `category`
 
-  The "type" of challenge. These correspond to CTFd categories, and
+  The "type" of challenge. This corresponds to CTFd categories, and
   challenges will be shown grouped into these categories.
 
 - `description`
