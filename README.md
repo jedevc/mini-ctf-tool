@@ -70,7 +70,8 @@ Fields:
 - `display`
 
   Display name of the challenge. This corresponds to the CTFd challenge name.
-  Must be stable over time (otherwise you'll get challenge duplication).
+  Must be unique and stable over time (otherwise you'll get challenge
+  duplication).
 
 - `category`
 
