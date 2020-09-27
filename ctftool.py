@@ -251,7 +251,7 @@ class Challenge:
         name: str,
         display: str,
         category: str,
-        path: Optional[str],
+        path: Optional[str] = None,
         description: str = "",
         points: int = 0,
         flags: List[str] = None,
@@ -277,7 +277,7 @@ class Challenge:
         self.error: Optional[Exception] = None
 
     @property
-    def githash(self) -> str:
+    def githash(self) -> Optional[str]:
         proc = subprocess.run([
             "git", "log",
             "-n", "1",
