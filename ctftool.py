@@ -285,7 +285,11 @@ class Challenge:
             "--",
             os.path.dirname(self.path),
         ], stdout=subprocess.PIPE)
-        return proc.stdout.decode().strip()
+        out = proc.stdout.decode().strip()
+        if out:
+            return out
+        else:
+            return None
 
     @staticmethod
     def load_all(suppress_errors: bool = False) -> Iterable["Challenge"]:
