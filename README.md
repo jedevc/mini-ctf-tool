@@ -112,6 +112,14 @@ Fields:
   The path to the file should be relative to the directory of the
   corresponding challenge file.
 
+- `hints`
+  
+  A dictionary which contains the hints and the associated costs.
+    | field  | type                             | description                                        |
+  | :----- | :------------------------------- | :------------------------------------------------- |
+  | cost | int                             | the 'cost' of the hint to the CTF user |
+  | text  | string | A plain text hint to the user, describing how to approach the challenge (but not give any solutions)  |
+
 - `deploy`
 
   | field  | type                             | description                                        |
