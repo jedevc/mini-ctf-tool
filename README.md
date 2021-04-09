@@ -121,6 +121,11 @@ Fields:
   | cost   | int                              | the 'cost' of the hint to the CTF user                                                             |
   | text   | string                           | plain text hint to the user, describing how to approach the challenge (but not give any solutions) |
 
+- `state`
+
+  One of 'visible' or 'hidden' if present. Represents whether the challenge
+  should be shown to participants or not on CTFd.
+
 - `deploy`
 
   | field  | type                             | description                                        |
